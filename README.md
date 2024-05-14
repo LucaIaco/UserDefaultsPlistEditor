@@ -10,6 +10,8 @@ It provides a `SampleApp` Xcode project within the package, linking the local SP
 ### Sample usage for the '**UserDefaults**' configuration:
 
 ```swift
+import UserDefaultsPlistEditor
+
 // Compact way:
 UserDefaultsPlistEditor.MainView()
 // Equivalent way:
@@ -19,12 +21,16 @@ UserDefaultsPlistEditor.MainView(config: .userDefaults, readOnly: false)
 ### Sample usage for the '**Plist**' configuration:
 
 ```swift
+import UserDefaultsPlistEditor
+
 let filesURLs = [plistURL1, plistURL2, ..., plistURLN]
 UserDefaultsPlistEditor.MainView(config: .plists(filesURLs), readOnly: false)
 ```
 
 ### Sample usage in **UIKit** (eg from within a `UIViewController`)
 ```swift
+import UserDefaultsPlistEditor
+
 let vc = UIHostingController(rootView: UserDefaultsPlistEditor.MainView())
 self.present(vc, animated: true)
 ```
