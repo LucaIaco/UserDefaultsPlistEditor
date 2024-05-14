@@ -7,6 +7,7 @@
 
 import SwiftUI
 
+/// The `UserDefaultsPlistEditor` root component view editor
 public struct MainView: View {
 	
 	// MARK: Properties
@@ -25,7 +26,11 @@ public struct MainView: View {
 	}
 	
 	// MARK: Initializer
-	
+    
+    /// Initializes the `UserDefaultsPlistEditor` SwiftUI main view
+    /// - Parameters:
+    ///   - config: the configuration to be used. Default is `.userDefaults`
+    ///   - readOnly: whether the component should be used in read only or allow modifications. Defaults is `false` (allow all)
 	public init(config: Config = .userDefaults, readOnly:Bool = false) {
 		_viewModel = StateObject(wrappedValue: .init(config: config, readOnly: readOnly))
 	}

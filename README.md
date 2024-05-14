@@ -23,6 +23,12 @@ let filesURLs = [plistURL1, plistURL2, ..., plistURLN]
 UserDefaultsPlistEditor.MainView(config: .plists(filesURLs), readOnly: false)
 ```
 
+### Sample usage in **UIKit** (eg from within a `UIViewController`)
+```swift
+let vc = UIHostingController(rootView: UserDefaultsPlistEditor.MainView())
+self.present(vc, animated: true)
+```
+
 As shown above, you can optionally enforce the read only mode, so just allowing the visualization and the search over the list
 
 ### Description for the '**UserDefaults**' configuration: 
