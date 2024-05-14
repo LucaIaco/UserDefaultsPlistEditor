@@ -40,7 +40,7 @@ The utility allows the addition / edit of the following types:
 - `Array`
 - `Dictionary`
 
-Regarding the `Array` and Dictionary, when adding them (directly in the root of the `UserDefaults` / *Plist file* or under a sub-node in the tree) will be added always empty. After saving the changes ( from the top-right navigation bar button item ), you can go back, and tap on them in order to add child nodes
+Regarding the `Array` and `Dictionary`, when adding them (directly in the root of the `UserDefaults` / *Plist file* or under a sub-node in the tree) will be added always empty. After saving the changes ( from the top-right navigation bar button item ), you can go back, and tap on them in order to add child nodes
 
 ### Limitations
 At the moment, the parent node which owns an item that has been just altered in any way (edited, added a child, deleted, etc.) causes the list refresh to collapse that node again, and you need to manually expand the levels till the node you were looking at
