@@ -29,7 +29,7 @@ struct ContentView: View {
     var body: some View {
         VStack(spacing:20) {
             
-            Text("This sample project shows how to present and operate with the *UserDefaultsPlistEditor* compoment. It an nutshell: \n\n- It allows CRUD actions on the **UserDefaults.standard** as well as any other UserDefaults automatically found under the *Library/Preferences* path of the app sandbox.\n\n- It allows CRUD actions on a generic **Plist** file (or a set of Plist files from the given *URL*) as long as those are accessible, usually in the app sandbox as well")
+            Text("This sample project shows how to present and operate with the *UserDefaultsPlistEditor* compoment. In a nutshell: \n\n- It allows CRUD actions on the **UserDefaults.standard** as well as any other UserDefaults automatically found under the *Library/Preferences* path of the app sandbox.\n\n- It allows CRUD actions on generic **Plist** files (a set of Plist files from the given *URL*) as long as those are accessible, usually in the app sandbox as well")
             
             let showView = Binding(get: { shownConfig != nil }, set: { if !$0 { shownConfig = nil }})
             Button("Show with **.userDefaults**") {
