@@ -115,7 +115,6 @@ public struct MainView: View {
 	/// Builds and returns the view and his logic to push to the EditView for the `editingItem`
 	/// - Returns: the navigation link to the view
 	@ViewBuilder private func navigationToEditView() -> some View {
-		EmptyView()
 		let dest = { () -> AnyView in
 			if let editingItem {
 				return AnyView(EditView(mainViewModel: viewModel, item: editingItem))
