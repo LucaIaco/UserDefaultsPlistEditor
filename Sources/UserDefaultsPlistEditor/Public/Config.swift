@@ -18,7 +18,7 @@ public enum Config: Identifiable {
     public var id: String {
         switch self {
         case .userDefaults: "userDefaults"
-        case .plists(let array): "plists"
+        case .plists: "plists"
         }
     }
 }

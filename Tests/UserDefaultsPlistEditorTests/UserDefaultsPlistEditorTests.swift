@@ -77,19 +77,19 @@ final class UserDefaultsPlistEditorTests: XCTestCase {
 	// MARK: Monster test cases o.o
     
 	@MainActor func test1_UserDefaults() async throws {
-		try await runtTest(mainViewModel: MainViewModel(config: .userDefaults, readOnly: false))
+        try await runtTest(mainViewModel: MainViewModel(config: .userDefaults(hideReservedKeys: true), readOnly: false, excludedKeys: ["sampleExcluded1"]), testingUserDefaults: true)
 	}
 	
 	@MainActor func test2_Plists() async throws {
 		
 		// Test Plist with root node as dictionary
 		
-		try await runtTest(mainViewModel: MainViewModel(config: .plists([samplePlistFile1]), readOnly: false))
+        try await runtTest(mainViewModel: MainViewModel(config: .plists([samplePlistFile1]), readOnly: false, excludedKeys: ["sampleExcluded1"]), testingUserDefaults: false)
 	}
 	
 	// MARK: Private
 	
-	@MainActor private func runtTest(mainViewModel:MainViewModel) async throws {
+    @MainActor private func runtTest(mainViewModel:MainViewModel, testingUserDefaults:Bool) async throws {
 		
 		// Test Main View Model
 		
@@ -105,9 +105,9 @@ final class UserDefaultsPlistEditorTests: XCTestCase {
 		let itemToDelete = try XCTUnwrap(mainViewModel.dataset.first(where: { $0.key == "testUDKey1" }))
 		await mainViewModel.deleteItem(itemToDelete)
 		XCTAssertFalse(mainViewModel.dataset.contains(where: { $0.key == "testUDKey1" }))
-		if mainViewModel.config == .userDefaults {
-			XCTAssertNil(UserDefaults.standard.object(forKey: "testUDKey1"))
-		}
+        if testingUserDefaults {
+            XCTAssertNil(UserDefaults.standard.object(forKey: "testUDKey1"))
+        }
 		
 		// Test ADD direct UserDefaults item
 		let rootItem = mainViewModel.symbolicRootItem
@@ -121,7 +121,7 @@ final class UserDefaultsPlistEditorTests: XCTestCase {
 		await mainViewModel.addOrEditItem(itemToEdit, newValue: false)
 		let itemEdited = try XCTUnwrap(mainViewModel.dataset.first(where: { $0.key == "testUDKey1" }))
 		XCTAssertTrue((itemEdited.value as? Bool) == false)
-		if mainViewModel.config == .userDefaults {
+        if testingUserDefaults {
 			XCTAssertEqual(UserDefaults.standard.bool(forKey: "testUDKey1"), false)
 		}
 		
@@ -272,7 +272,7 @@ final class UserDefaultsPlistEditorTests: XCTestCase {
 		XCTAssertTrue(mainViewModel.dataset.count == 1)
 		
 		// TEST for Plist only
-		if mainViewModel.config != .userDefaults {
+        if !testingUserDefaults {
 			mainViewModel.filterText = "nestedTarget"
 			await mainViewModel.updateDataset()
 			var item = try XCTUnwrap(mainViewModel.dataset.first)

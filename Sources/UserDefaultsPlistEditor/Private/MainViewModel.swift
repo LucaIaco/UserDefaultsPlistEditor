@@ -116,7 +116,7 @@ final class MainViewModel: ObservableObject {
 				if let sourceDict = selectedSource as? [String: Any] {
 					result = sourceDict.compactMap { (key: String, value: Any) in
                             .init(key: key, value: value, filterTxt: self.filterText.trimmed,
-                                  excludedKeys: excludedKeys)
+                                  excludedKeys: self.excludedKeys)
 					}
 					// sort the dataset by keys if possible
 					result.sort { lhs, rhs in
@@ -137,7 +137,7 @@ final class MainViewModel: ObservableObject {
 					var ix = 0
 					result = sourceArray.compactMap({ value in
                         let item = DataItem(key: nil, value: value, filterTxt: self.filterText.trimmed,
-                                            excludedKeys: excludedKeys, index: ix)
+                                            excludedKeys: self.excludedKeys, index: ix)
 						ix += 1
 						return item
 					})
@@ -385,36 +385,21 @@ final class MainViewModel: ObservableObject {
 		return result
 	}
     
-    /// Returns the set of keys which are not saved directly on the plist file behind the currently selected user defaults, and therefore are the runtime keys added by the OS
+    /// Returns the set of keys are likely to be runtime keys added by the OS
     private func userDefaultsReservedKeys() -> [String] {
-        guard let appId = Bundle.main.bundleIdentifier, var path = userDefaultsBaseURL else { return lastUDReservedKeys }
-        let plistUDFile = "\(selectedUserDefaultsDomain == MainViewModel.standardUserDefaultsString ? appId : selectedUserDefaultsDomain).plist"
-        if #available(iOS 16.0, *) {
-            path.append(path: plistUDFile)
-        } else {
-            path = path.appendingPathComponent(plistUDFile)
+        guard !lastUDReservedKeys.isEmpty else {
+            guard let dict = UserDefaults(suiteName: "_\(self)_")?.dictionaryRepresentation() else {
+                return lastUDReservedKeys
+            }
+            lastUDReservedKeys = Array(dict.keys)
+            return lastUDReservedKeys
         }
-        var result:[String] = []
-        // If the selected UserDefaults is the `default` one, and the plist file behind doesn't exists, then
-        // there's no custom user default value stored in the hosting app, and we can assume that all the keys
-        // retrieved from the dictionary representation are reserved
-        if selectedUserDefaultsDomain == MainViewModel.standardUserDefaultsString, !FileManager.default.fileExists(atPath: path.path) {
-            guard let dict = selectedUserDefaults?.dictionaryRepresentation() else { return lastUDReservedKeys }
-            result = Array(dict.keys).sorted()
-        } else {
-            guard let plistContent = plistContent(path) as? [String: Any] else { return lastUDReservedKeys }
-            guard let runtimeUDDict = selectedUserDefaults?.dictionaryRepresentation() else { return lastUDReservedKeys }
-            let plistKeys = Set(plistContent.keys)
-            let runtimeKeys = Set(runtimeUDDict.keys)
-            result = Array(runtimeKeys.symmetricDifference(plistKeys)).sorted()
-        }
-        
-        if lastUDReservedKeys.isEmpty {
-            lastUDReservedKeys = result
-        } else if !lastUDReservedKeys.contains(where: { $0.hasPrefix("METAL_" ) }),
-                  result.contains(where: { $0.hasPrefix("METAL_" ) }) {
-            // The plist behind the user defaults is handled by the OS, and we cannot be sure that the sync and flush is up to date, therefore we keep in memory only the first acquired snapshot. Only excpetion is made for the few known reserved keys which SEEMS to be added on further read-access on the dictionaryRepresentation(). Those are the keys with prefix "METAL_*". We will then add them to the list of keys to be hid.
-            lastUDReservedKeys.append(contentsOf: result.filter({ $0.hasPrefix("METAL_" ) }))
+        // The plist behind the user defaults is handled by the OS, and we cannot be sure that the sync and flush is up to date, therefore we keep in memory only the first acquired snapshot. Only excpetion is made for the few known reserved keys which SEEMS to be added on further read-access on the dictionaryRepresentation(). Those are the keys with prefix "METAL_*". We will then add them to the list of keys to be hid.
+        guard let runtimeUDDict = selectedUserDefaults?.dictionaryRepresentation() else { return lastUDReservedKeys }
+        let runtimeKeys = Set(runtimeUDDict.keys)
+        if !lastUDReservedKeys.contains(where: { $0.hasPrefix("METAL_" ) }),
+           runtimeKeys.contains(where: { $0.hasPrefix("METAL_" ) }) {
+            lastUDReservedKeys.append(contentsOf: runtimeKeys.filter({ $0.hasPrefix("METAL_" ) }))
         }
         return lastUDReservedKeys
     }
