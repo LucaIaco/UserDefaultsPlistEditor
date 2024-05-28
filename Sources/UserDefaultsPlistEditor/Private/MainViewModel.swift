@@ -60,7 +60,7 @@ final class MainViewModel: ObservableObject {
 	private(set) var userDefaultsDomains = [MainViewModel.standardUserDefaultsString]
     
     /// The set of last acquired reserved keys in the user defaults
-    private var lastUDReservedKeys:[String] = []
+    private static var lastUDReservedKeys:[String] = []
 	
 	/// The `UserDefaults` instance associated to the `selectedUserDefaultsDomain`
 	private var selectedUserDefaults:UserDefaults? {
@@ -387,21 +387,21 @@ final class MainViewModel: ObservableObject {
     
     /// Returns the set of keys are likely to be runtime keys added by the OS
     private func userDefaultsReservedKeys() -> [String] {
-        guard !lastUDReservedKeys.isEmpty else {
+        guard !Self.lastUDReservedKeys.isEmpty else {
             guard let dict = UserDefaults(suiteName: "_\(self)_")?.dictionaryRepresentation() else {
-                return lastUDReservedKeys
+                return Self.lastUDReservedKeys
             }
-            lastUDReservedKeys = Array(dict.keys)
-            return lastUDReservedKeys
+            Self.lastUDReservedKeys = Array(dict.keys)
+            return Self.lastUDReservedKeys
         }
         // The plist behind the user defaults is handled by the OS, and we cannot be sure that the sync and flush is up to date, therefore we keep in memory only the first acquired snapshot. Only excpetion is made for the few known reserved keys which SEEMS to be added on further read-access on the dictionaryRepresentation(). Those are the keys with prefix "METAL_*". We will then add them to the list of keys to be hid.
-        guard let runtimeUDDict = selectedUserDefaults?.dictionaryRepresentation() else { return lastUDReservedKeys }
+        guard let runtimeUDDict = selectedUserDefaults?.dictionaryRepresentation() else { return Self.lastUDReservedKeys }
         let runtimeKeys = Set(runtimeUDDict.keys)
-        if !lastUDReservedKeys.contains(where: { $0.hasPrefix("METAL_" ) }),
+        if !Self.lastUDReservedKeys.contains(where: { $0.hasPrefix("METAL_" ) }),
            runtimeKeys.contains(where: { $0.hasPrefix("METAL_" ) }) {
-            lastUDReservedKeys.append(contentsOf: runtimeKeys.filter({ $0.hasPrefix("METAL_" ) }))
+            Self.lastUDReservedKeys.append(contentsOf: runtimeKeys.filter({ $0.hasPrefix("METAL_" ) }))
         }
-        return lastUDReservedKeys
+        return Self.lastUDReservedKeys
     }
 	
 	/// Reads and return the Plist content of the file at the given `url`
