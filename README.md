@@ -7,6 +7,10 @@ The package exposes one SwiftUI view, which is to be presented modally (or withi
 
 It provides a `SampleApp` Xcode project within the package, linking the local SPM, which also allows you to play around with it and see how it works.
 
+### Demo:
+
+https://github.com/LucaIaco/UserDefaultsPlistEditor/assets/7451313/038f8f23-9787-41a9-8e05-bc95c63b8191
+
 ### Sample usage for the '**UserDefaults**' configuration:
 
 ```swift
