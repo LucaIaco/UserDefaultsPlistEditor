@@ -43,18 +43,20 @@ struct DataItem: Identifiable {
 	
 	// MARK: Init
 	
-	init?(key:String?, value:Any, filterTxt:String, paths:[String] = [], index:Int? = nil) {
+    init?(key:String?, value:Any, filterTxt:String, excludedKeys:[String], paths:[String] = [], index:Int? = nil) {
 		self.value = value
 		self.type = .init(from: value)
 		var p = paths
 		if let key {
+            // if the key for this item is among the excluded keys, then we should skip it
+            guard !excludedKeys.contains(key) else { return nil }
 			p.append("\(Self.prefixForKey)\(key.trimmed)")
 		} else if let index {
 			p.append("\(Self.prefixForIndex)\(index)")
 		}
 		self.paths = p
 		
-		self.children = Self.children(paths: self.paths, value: value, type: self.type, filterTxt: filterTxt)
+        self.children = Self.children(paths: self.paths, value: value, type: self.type, filterTxt: filterTxt, excludedKeys: excludedKeys)
 		self.title = Self.title(key: key, value: value, type: self.type, filterTxt: filterTxt)
 		self.id = "\(self.paths.joined(separator: "|"))_\(filterTxt)_\(self.value)".utf8Data!.sha256
 		// filter out the item in case a search term is provided and there's no match in the title item iself or in his children (in case those exists and have been in turn filtered out)
@@ -134,19 +136,19 @@ struct DataItem: Identifiable {
 	///   - type: The determined type of the `value`
 	///   - filterTxt: If provided, is the searching terms to use for filtering the items
 	/// - Returns: the resulting array of children under the given `value`
-	private static func children(paths:[String], value:Any, type:ItemType, filterTxt:String) -> [DataItem] {
+    private static func children(paths:[String], value:Any, type:ItemType, filterTxt:String, excludedKeys:[String]) -> [DataItem] {
 		guard type.isCollection else { return [] }
 		if let valArray = value as? Array<Any> {
 			var ix = 0
 			return valArray.compactMap {
-				let item = DataItem(key: nil, value: $0, filterTxt: filterTxt, paths: paths, index: ix)
+				let item = DataItem(key: nil, value: $0, filterTxt: filterTxt, excludedKeys: excludedKeys, paths: paths, index: ix)
 				ix += 1
 				return item
 			}
 		} else if let valDict = value as? Dictionary<String, Any> {
 			var result: [DataItem] = []
 			result = valDict.compactMap({ (key: String, val: Any) in
-				.init(key: key, value: val, filterTxt: filterTxt, paths: paths)
+				.init(key: key, value: val, filterTxt: filterTxt, excludedKeys: excludedKeys, paths: paths)
 			})
 			// sort the dataset by keys if possible
 			result.sort { lhs, rhs in

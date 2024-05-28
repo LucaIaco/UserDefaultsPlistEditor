@@ -24,6 +24,8 @@ struct ContentView: View {
         ]
     }
     
+    private let sampleExcludedKeys:[String] = ["sampleExcluded1", "sampleExcluded2"]
+    
     // MARK: Body view
     
     var body: some View {
@@ -31,10 +33,9 @@ struct ContentView: View {
             
             Text("This sample project shows how to present and operate with the *UserDefaultsPlistEditor* compoment. In a nutshell: \n\n- It allows CRUD actions on the **UserDefaults.standard** as well as any other UserDefaults automatically found under the *Library/Preferences* path of the app sandbox.\n\n- It allows CRUD actions on generic **Plist** files (a set of Plist files from the given *URL*) as long as those are accessible, usually in the app sandbox as well")
             
-            let showView = Binding(get: { shownConfig != nil }, set: { if !$0 { shownConfig = nil }})
             Button("Show with **.userDefaults**") {
                 createSampleExtraUserDefaultsIfNeeded()
-                shownConfig = .userDefaults
+                shownConfig = .userDefaults(hideReservedKeys: true)
             }
             Button("Show with **.plists([URL])**", action: {
                 Task {
@@ -42,8 +43,10 @@ struct ContentView: View {
                     shownConfig = .plists(samplePlistFiles)
                 }
             })
-            .sheet(isPresented: showView, content: {
-                UserDefaultsPlistEditor.MainView(config: shownConfig ?? .userDefaults, readOnly: false)
+            .sheet(item: $shownConfig, content: { cfg in
+                UserDefaultsPlistEditor.MainView(config: cfg, 
+                                                 readOnly: false,
+                                                 excludedKeys: sampleExcludedKeys)
             })
         }
         .padding()
@@ -55,6 +58,7 @@ struct ContentView: View {
         guard let ud = UserDefaults(suiteName: "com.sampleDomain.sampleApp") else { return }
         guard ud.object(forKey: "sampleAppKey") == nil else { return }
         ud.set("Sample value. This is used by the sample project to create the additional UserDefaults file", forKey: "sampleAppKey")
+        ud.set(true, forKey: "sampleExcluded2")
     }
     
     private func createSamplePlistFilesIfNeeded(forceCreate:Bool = false) async {
@@ -69,7 +73,8 @@ struct ContentView: View {
                           "key6": [1, "someValue", true, false, 100.3, Date(),
                                    ["key6_subKey1": "apple", "key6_subKey2": true],
                                    [10,20,30,40,50]],
-                          "key7": ["key7_subKey1": false, "key7_subKey2": [1,2,3,4,5]]
+                          "key7": ["key7_subKey1": false, "key7_subKey2": [1,2,3,4,5]],
+                          "sampleExcluded2": true
                    ], fileName: "samplePlist1")
         
         // Sample Plist 2 with root item: Dictionary
@@ -81,7 +86,7 @@ struct ContentView: View {
                           "key6": ["key6_subKey2": false, "key6_subKey1": [1,2,3,4,5]],
                           "key7": ["someValue", 1, false, 999.1, Date(),
                                    ["key7_subKey1": "apple", "key7_subKey2": 13],
-                                   ["a","b","c","d", true]]
+                                   ["a","b","c","d", true]],
                    ], fileName: "samplePlist2")
         
         // Sample Plist 3 with root item: Array
@@ -90,7 +95,7 @@ struct ContentView: View {
                           Date(),
                           "SampleString",
                           256.5,
-                          ["key1": ["key1_subKey2": false, "key1_subKey1": [1,2,3,4,5]]],
+                          ["key1": ["key1_subKey2": false, "sampleExcluded2": 111, "key1_subKey1": [1,2,3,4,5]]],
                           ["a", "b", "c", "d"]
                          ], fileName: "samplePlist3")
     }

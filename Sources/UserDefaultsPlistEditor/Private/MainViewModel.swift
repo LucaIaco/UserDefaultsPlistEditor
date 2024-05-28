@@ -7,18 +7,25 @@
 
 import SwiftUI
 
+/// The view model used by the main component, which is the core part of the whole tool
 @MainActor
 final class MainViewModel: ObservableObject {
 	
 	// MARK: Propeties (Misc)
 	
-	@Published
-	var dataset:[DataItem] = []
+    /// The current dataset (tree-structure)
+    @Published
+    var dataset:[DataItem] = []
 	
+    /// The current searched string to filter across the `dataset` tree
 	@Published
 	var filterText:String = ""
-	
+    
+    /// The chosen configuration
 	let config:Config
+    
+    /// A custom set of string keys which should not be displayed in the data model, **at any level** in the tree data structure. Those keys will be also prevented to be added
+    let excludedKeys:[String]
 	
 	/// Indicates if the configuration for this module allows to Add / Edit / Delete fields or if is just read-only
 	private(set) var isReadOnly = false
@@ -26,7 +33,7 @@ final class MainViewModel: ObservableObject {
 	/// Creates and return a `DataItem` which represent itself the selected source
 	///
 	/// This is used to create a new key-value directly to the source rather than a child node
-	var symbolicRootItem:DataItem { .init(key: nil, value: selectedSource, filterTxt: "")! }
+    var symbolicRootItem:DataItem { .init(key: nil, value: selectedSource, filterTxt: "", excludedKeys: excludedKeys)! }
 	
 	/// The selected source data (eg. UserDefaults or Plist file root dictionary or array)
 	private var selectedSource: Any {
@@ -51,12 +58,26 @@ final class MainViewModel: ObservableObject {
 	
 	/// The available list of `UserDefaults` domain strings
 	private(set) var userDefaultsDomains = [MainViewModel.standardUserDefaultsString]
+    
+    /// The set of last acquired reserved keys in the user defaults
+    private var lastUDReservedKeys:[String] = []
 	
 	/// The `UserDefaults` instance associated to the `selectedUserDefaultsDomain`
 	private var selectedUserDefaults:UserDefaults? {
 		guard selectedUserDefaultsDomain != MainViewModel.standardUserDefaultsString else { return .standard }
 		return UserDefaults(suiteName: selectedUserDefaultsDomain)
 	}
+    
+    /// Returns the base url to the folder containing the UserDefaults
+    private var userDefaultsBaseURL: URL? {
+        guard var path = FileManager.default.urls(for: .libraryDirectory, in: .userDomainMask).first else { return nil }
+        if #available(iOS 16.0, *) {
+            path.append(path: "Preferences")
+        } else {
+            path = path.appendingPathComponent("Preferences")
+        }
+        return path
+    }
 	
 	// MARK: Properties (Plists)
 	
@@ -65,13 +86,15 @@ final class MainViewModel: ObservableObject {
 	
 	// MARK: Initializer
 	
-	/// Initializes the view model
-	/// - Parameters:
-	///   - config: the configuration to be adopted
-	///   - readOnly: whether the module should be used in read-only or allow add/edit/delete
-	init(config: Config, readOnly:Bool) {
+    /// Initializes the view model
+    /// - Parameters:
+    ///   - config: the configuration to be adopted
+    ///   - readOnly: whether the module should be used in read-only or allow add/edit/delete
+    ///   - excludedKeys: a custom set of string keys which should not be displayed in the data model
+    init(config: Config, readOnly:Bool, excludedKeys:[String]) {
 		self.config = config
 		self.isReadOnly = readOnly
+        self.excludedKeys = excludedKeys
 		switch config {
 		case .plists(let array): selectedPlistURL = array.first
 		case .userDefaults: userDefaultsDomains = retrieveUserDefaultsDomains()
@@ -92,17 +115,29 @@ final class MainViewModel: ObservableObject {
 				var result:[DataItem] = []
 				if let sourceDict = selectedSource as? [String: Any] {
 					result = sourceDict.compactMap { (key: String, value: Any) in
-						.init(key: key, value: value, filterTxt: self.filterText.trimmed)
+                            .init(key: key, value: value, filterTxt: self.filterText.trimmed,
+                                  excludedKeys: excludedKeys)
 					}
 					// sort the dataset by keys if possible
 					result.sort { lhs, rhs in
 						guard let k1 = lhs.key, let k2 = rhs.key else { return true }
 						return k1 < k2
 					}
+                    
+                    // In case of UserDefaults config, if reserved root keys should be hidden, then remove them from the resulting dataset
+                    if case let .userDefaults(hideReservedKeys) = config, hideReservedKeys {
+                        let reservedKeys = userDefaultsReservedKeys()
+                        result = result.filter({ item in
+                            guard let keyToCheck = item.key else { return true }
+                            return !reservedKeys.contains(keyToCheck)
+                        })
+                    }
+                    
 				} else if let sourceArray = selectedSource as? [Any] {
 					var ix = 0
 					result = sourceArray.compactMap({ value in
-						let item = DataItem(key: nil, value: value, filterTxt: self.filterText.trimmed, index: ix)
+                        let item = DataItem(key: nil, value: value, filterTxt: self.filterText.trimmed,
+                                            excludedKeys: excludedKeys, index: ix)
 						ix += 1
 						return item
 					})
@@ -332,18 +367,12 @@ final class MainViewModel: ObservableObject {
 			}
 		}
 	}
-	
+    
 	/// Retrieves the list of `UserDefaults` domains, by fetching the content of '/Libary/Preferences' in the app
 	/// - Returns: the resulting list of preferences domains
 	private func retrieveUserDefaultsDomains() -> [String] {
 		var result:[String] = [MainViewModel.standardUserDefaultsString]
-		guard let appId = Bundle.main.bundleIdentifier else { return result }
-		guard var path = FileManager.default.urls(for: .libraryDirectory, in: .userDomainMask).first else { return result }
-		if #available(iOS 16.0, *) {
-			path.append(path: "Preferences")
-		} else {
-			path = path.appendingPathComponent("Preferences")
-		}
+		guard let appId = Bundle.main.bundleIdentifier, let path = userDefaultsBaseURL else { return result }
 		// get all the plist files except for the `standard` which we already have
 		guard let plists = try? FileManager.default.contentsOfDirectory(at: path, includingPropertiesForKeys: nil, options: [.skipsHiddenFiles, .skipsSubdirectoryDescendants]) else { return result }
 		let domains:[String] = plists.compactMap({ plistURL in
@@ -355,6 +384,40 @@ final class MainViewModel: ObservableObject {
 		result.append(contentsOf: domains)
 		return result
 	}
+    
+    /// Returns the set of keys which are not saved directly on the plist file behind the currently selected user defaults, and therefore are the runtime keys added by the OS
+    private func userDefaultsReservedKeys() -> [String] {
+        guard let appId = Bundle.main.bundleIdentifier, var path = userDefaultsBaseURL else { return lastUDReservedKeys }
+        let plistUDFile = "\(selectedUserDefaultsDomain == MainViewModel.standardUserDefaultsString ? appId : selectedUserDefaultsDomain).plist"
+        if #available(iOS 16.0, *) {
+            path.append(path: plistUDFile)
+        } else {
+            path = path.appendingPathComponent(plistUDFile)
+        }
+        var result:[String] = []
+        // If the selected UserDefaults is the `default` one, and the plist file behind doesn't exists, then
+        // there's no custom user default value stored in the hosting app, and we can assume that all the keys
+        // retrieved from the dictionary representation are reserved
+        if selectedUserDefaultsDomain == MainViewModel.standardUserDefaultsString, !FileManager.default.fileExists(atPath: path.path) {
+            guard let dict = selectedUserDefaults?.dictionaryRepresentation() else { return lastUDReservedKeys }
+            result = Array(dict.keys).sorted()
+        } else {
+            guard let plistContent = plistContent(path) as? [String: Any] else { return lastUDReservedKeys }
+            guard let runtimeUDDict = selectedUserDefaults?.dictionaryRepresentation() else { return lastUDReservedKeys }
+            let plistKeys = Set(plistContent.keys)
+            let runtimeKeys = Set(runtimeUDDict.keys)
+            result = Array(runtimeKeys.symmetricDifference(plistKeys)).sorted()
+        }
+        
+        if lastUDReservedKeys.isEmpty {
+            lastUDReservedKeys = result
+        } else if !lastUDReservedKeys.contains(where: { $0.hasPrefix("METAL_" ) }),
+                  result.contains(where: { $0.hasPrefix("METAL_" ) }) {
+            // The plist behind the user defaults is handled by the OS, and we cannot be sure that the sync and flush is up to date, therefore we keep in memory only the first acquired snapshot. Only excpetion is made for the few known reserved keys which SEEMS to be added on further read-access on the dictionaryRepresentation(). Those are the keys with prefix "METAL_*". We will then add them to the list of keys to be hid.
+            lastUDReservedKeys.append(contentsOf: result.filter({ $0.hasPrefix("METAL_" ) }))
+        }
+        return lastUDReservedKeys
+    }
 	
 	/// Reads and return the Plist content of the file at the given `url`
 	/// - Parameter url: the url to the Plist file to load

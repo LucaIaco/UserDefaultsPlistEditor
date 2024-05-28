@@ -23,6 +23,7 @@ struct EditView: View {
 		if viewModel.item.type == .dictionary {
 			guard !viewModel.fieldKey.trimmed.isEmpty else { return true }
 			guard !viewModel.keyAlreadyExists else { return true }
+            guard !viewModel.keyIsExcluded else { return true }
 		}
 		return !hasPendingChanges
 	}
@@ -50,7 +51,12 @@ struct EditView: View {
 			} label: { Text("Save") }
 				.disabled(self.saveBtnDisabled)
 		}.onChange(of: viewModel.fieldsHash) { _ in
-			self.keyErrorMsg = viewModel.keyAlreadyExists ? "This key is already used in this dictionary" : nil
+            if viewModel.keyAlreadyExists {
+                self.keyErrorMsg = "This key is already used in this dictionary"
+            } else if viewModel.keyIsExcluded {
+                self.keyErrorMsg = "This key is among the `excludedKeys` set and cannot be used"
+            } else { self.keyErrorMsg = nil }
+            
 			self.hasPendingChanges = true
 		}.onChange(of: viewModel.fieldType) { _ in
 			if viewModel.isAddingChild {
@@ -207,6 +213,12 @@ extension EditView {
 			guard let dictItem = item.value as? [String: Any] else { return true }
 			return dictItem.keys.contains(fieldKey.trimmed)
 		}
+        
+        /// Indicates if the currently inserted key is among the set of excluded keys, and therefore cannot be used (in case this is of type `dictionary`)
+        var keyIsExcluded:Bool {
+            guard item.type == .dictionary else { return false }
+            return mainViewModel?.excludedKeys.contains(fieldKey.trimmed) ?? false
+        }
 		
 		/// Hash represantation of the fieldd constellation
 		fileprivate var fieldsHash:Data? { "\(fieldKey)\(String(describing: fieldValue))\(fieldType)".utf8Data }

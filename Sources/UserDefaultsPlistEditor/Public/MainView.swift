@@ -29,10 +29,11 @@ public struct MainView: View {
     
     /// Initializes the `UserDefaultsPlistEditor` SwiftUI main view
     /// - Parameters:
-    ///   - config: the configuration to be used. Default is `.userDefaults`
-    ///   - readOnly: whether the component should be used in read only or allow modifications. Defaults is `false` (allow all)
-	public init(config: Config = .userDefaults, readOnly:Bool = false) {
-		_viewModel = StateObject(wrappedValue: .init(config: config, readOnly: readOnly))
+    ///   - config: The configuration to be used. Default is `.userDefaults(hideReservedKeys:true)`
+    ///   - readOnly: Whether the component should be used in read only or allow modifications. Defaults is `false` (allow all)
+    ///   - excludedKeys: A custom set of string keys which should not be displayed in the data model, **at any level** in the tree data structure. Those keys will be also prevented to be added. Default is empty
+    public init(config: Config = .userDefaults(hideReservedKeys: true), readOnly:Bool = false, excludedKeys:[String] = []) {
+        _viewModel = StateObject(wrappedValue: .init(config: config, readOnly: readOnly, excludedKeys: excludedKeys))
 	}
 	
 	// MARK: Body view
@@ -40,12 +41,12 @@ public struct MainView: View {
 	public var body: some View {
 		NavigationView {
 			VStack(alignment: .leading, spacing: 5) {
+                navigationToEditView()
 				if !viewModel.dataset.isEmpty {
 					// Display the header view
 					Group {
-						navigationToEditView()
 						HStack(spacing: 4) {
-							Text("Number of root keys:")
+							Text("Number of root entries:")
 							Text("\(viewModel.dataset.count)").bold().foregroundColor(.primary)
 						}
 						Divider()
